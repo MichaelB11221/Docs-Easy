@@ -470,3 +470,106 @@ if (Test-Path "$PSScriptRoot\CTTcustom.ps1") {
 #endregion
 
 Write-Host "$($PSStyle.Foreground.Yellow)Profile loaded. Use 'Show-Help' to see all commands.$($PSStyle.Reset)"
+
+function get_psprofile_github {
+    $url = "https://raw.githubusercontent.com/MichaelB11221/Docs-Easy/main/Microsoft.PowerShell_profile.ps1"
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $PROFILE -ErrorAction Stop
+        Write-Host "Profile pulled from GitHub successfully. Run 'reload-profile' to apply." -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to fetch profile from GitHub: $_"
+    }
+}
+
+function get_psprofile_github_backupcurrent {
+    $url = "https://raw.githubusercontent.com/MichaelB11221/Docs-Easy/main/Microsoft.PowerShell_profile.ps1"
+    $backup = "$PROFILE.bak_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    try {
+        Copy-Item $PROFILE $backup -ErrorAction SilentlyContinue
+        Invoke-WebRequest -Uri $url -OutFile $PROFILE -ErrorAction Stop
+        Write-Host "Backed up old profile to: $backup" -ForegroundColor Yellow
+        Write-Host "Profile pulled from GitHub successfully. Run 'reload-profile' to apply." -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to fetch profile from GitHub: $_"
+    }
+}
+
+function zadd {
+    param([string]$Path = (Get-Location).Path)
+
+    if (-not (Get-Command zoxide -ErrorAction SilentlyContinue)) {
+        Write-Error "zoxide not found. Install it first."
+        return
+    }
+
+    $dirs = Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue
+    if (-not $dirs) {
+        Write-Host "No subdirectories found in: $Path" -ForegroundColor Yellow
+        return
+    }
+
+    $count = 0
+    foreach ($dir in $dirs) {
+        zoxide add "$($dir.FullName)"
+        $count++
+    }
+    Write-Host "Added $count director$(if($count -eq 1){'y'}else{'ies'}) to zoxide from: $Path" -ForegroundColor Green
+}
+
+function zaddr {
+    param([string]$Path = (Get-Location).Path)
+
+    if (-not (Get-Command zoxide -ErrorAction SilentlyContinue)) {
+        Write-Error "zoxide not found. Install it first."
+        return
+    }
+
+    $dirs = Get-ChildItem -Path $Path -Directory -Recurse -ErrorAction SilentlyContinue
+    if (-not $dirs) {
+        Write-Host "No subdirectories found in: $Path" -ForegroundColor Yellow
+        return
+    }
+
+    $count = 0
+    foreach ($dir in $dirs) {
+        zoxide add "$($dir.FullName)"
+        $count++
+    }
+    Write-Host "Added $count director$(if($count -eq 1){'y'}else{'ies'}) (recursive) to zoxide from: $Path" -ForegroundColor Green
+}
+
+function zaddrall {
+    param([string]$Path = (Get-Location).Path)
+
+    if (-not (Get-Command zoxide -ErrorAction SilentlyContinue)) {
+        Write-Error "zoxide not found. Install it first."
+        return
+    }
+
+    $topDirs = Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue
+    if (-not $topDirs) {
+        Write-Host "No subdirectories found in: $Path" -ForegroundColor Yellow
+        return
+    }
+
+    $totalCount = 0
+
+    foreach ($top in $topDirs) {
+        # Add the top-level folder itself
+        zoxide add "$($top.FullName)"
+        $totalCount++
+
+        # Add everything nested inside it
+        $nested = Get-ChildItem -Path $top.FullName -Directory -Recurse -ErrorAction SilentlyContinue
+        $nestedCount = 0
+        foreach ($n in $nested) {
+            zoxide add "$($n.FullName)"
+            $nestedCount++
+        }
+
+        $totalCount += $nestedCount
+        Write-Host "  [$($top.Name)] -> added itself + $nestedCount nested folder(s)" -ForegroundColor Cyan
+    }
+
+    Write-Host "Done. Added $totalCount total director$(if($totalCount -eq 1){'y'}else{'ies'}) from: $Path" -ForegroundColor Green
+}
